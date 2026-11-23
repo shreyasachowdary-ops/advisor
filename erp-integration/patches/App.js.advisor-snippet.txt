@@ -1,0 +1,18 @@
+# Add to lnpl_erp_dev_v1/src/components/App.js (same style as Generate Notice)
+
+# 1) Import (next to GenerateNotice):
+import AdvisorPage from "./Communication/AdvisorPage.js";
+
+# 2) Route inside <Routes> (after /generate-notice block):
+<Route
+  path="/advisor"
+  element={
+    <RoleRoute
+      allowedRoles={/* SEE apply-to-erp.ps1 — roles discovered from your App.js */}
+    >
+      <AdvisorPage />
+    </RoleRoute>
+  }
+/>
+
+# apply-to-erp.ps1 inserts the import and route automatically when you pass -ErpRoot.

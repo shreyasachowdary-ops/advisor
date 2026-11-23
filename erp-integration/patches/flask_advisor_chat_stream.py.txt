@@ -1,0 +1,58 @@
+# Advisor streaming route for the ERP Flask server (Backend/app.py)
+#
+# WHAT: lets the advisor page show the answer word by word (first words in about 1 second)
+#       instead of waiting ~10 seconds for the whole answer.
+# WHERE: paste this block into Backend/app.py directly after advisor_chat()
+#        (the "/api/advisor/chat" route, near ADVISOR_BACKEND_URL). Nothing else changes.
+# NEEDS: `Response` from flask. app.py already imports request/jsonify; if `Response` is not
+#        imported yet, add it to the existing line:  from flask import ..., Response
+#
+# Same access as /api/advisor/chat: since 2026-10-29 the advisor is public, so no
+# login/role check (if /api/advisor/chat gets @login_required/@role_required back, add them
+# here too). The old route stays and keeps working; the page falls back to it
+# automatically if this route is missing (404). Applied to Backend/app.py on 2026-10-29.
+#
+# Tested with waitress 3.0.2 (start_server.py, default settings): pieces reach the browser
+# as they are written, no extra waitress setting needed. nginx: the X-Accel-Buffering header
+# below turns off nginx buffering for this route only, so nginx.conf does not need editing.
+
+
+@app.route("/api/advisor/chat/stream", methods=["POST"])
+def advisor_chat_stream():
+    data = request.get_json() or {}
+    try:
+        upstream = requests.post(
+            f"{ADVISOR_BACKEND_URL.rstrip('/')}/api/chat/stream",
+            json=data,
+            stream=True,
+            # 10 s to connect; then up to 120 s between pieces (not for the whole answer).
+            timeout=(10, 120),
+        )
+    except Exception as e:
+        logger.exception("Advisor chat stream proxy error")
+        return jsonify({"detail": "Unable to connect to Advisor Agent", "error": str(e)}), 503
+
+    if upstream.status_code != 200:
+        body = upstream.content
+        upstream.close()
+        return Response(
+            body,
+            status=upstream.status_code,
+            content_type=upstream.headers.get("Content-Type", "application/json"),
+        )
+
+    def relay():
+        try:
+            # chunk_size=None: pass each piece on as soon as it arrives.
+            for chunk in upstream.iter_content(chunk_size=None):
+                if chunk:
+                    yield chunk
+        finally:
+            upstream.close()
+
+    return Response(
+        relay(),
+        status=200,
+        content_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

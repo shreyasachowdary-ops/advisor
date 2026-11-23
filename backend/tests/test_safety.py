@@ -60,6 +60,16 @@ class TestNormalQueries:
                 )
 
 
+class TestBenignKeywords:
+    def test_everyday_uses_of_risk_words_stay_normal(self):
+        failures = [
+            f"{item['id']}: got {classify_safety(item['prompt']).risk_level}"
+            for item in _load_prompts("benign_keywords")
+            if classify_safety(item["prompt"]).risk_level != RiskLevel.NORMAL
+        ]
+        assert not failures, "Benign prompts escalated:\n" + "\n".join(failures)
+
+
 class TestSpecificPatterns:
     def test_self_harm(self):
         assert classify_safety("The child wants to kill themselves").risk_level == RiskLevel.URGENT

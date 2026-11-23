@@ -11,7 +11,7 @@ fi
 uvicorn app.main:app --host 127.0.0.1 --port 8787 --reload &
 BACKEND_PID=$!
 
-cd "$ROOT/frontend"
+cd "$ROOT/reference_frontend"
 npm run dev &
 FRONTEND_PID=$!
 

@@ -11,13 +11,13 @@ $backendJob = Start-Job -ScriptBlock {
 
 $frontendJob = Start-Job -ScriptBlock {
     param($root)
-    Set-Location "$root\frontend"
+    Set-Location "$root\reference_frontend"
     npm run dev
 } -ArgumentList $Root
 
 Write-Host "Backend job ID: $($backendJob.Id)"
 Write-Host "Frontend job ID: $($frontendJob.Id)"
-Write-Host "Open http://127.0.0.1:43123"
+Write-Host "Open http://127.0.0.1:5173"
 Write-Host "Press Ctrl+C to stop"
 
 try {

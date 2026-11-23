@@ -1,4 +1,4 @@
-"""Chunk, embed, and load documents into Chroma."""
+"""Chunk, embed (Ollama via LangChain), and load documents into Chroma."""
 
 import json
 import logging
@@ -13,13 +13,13 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.config import settings
+from app.embeddings import embed_documents
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 COLLECTION_NAME = "advisor_kb"
 SEED_FILE = Path(__file__).parent / "seed_chunks.json"
-SOURCES_DIR = Path(__file__).parent / "sources"
 
 
 def get_client():
@@ -32,7 +32,7 @@ def get_client():
 
 
 def ingest_seed_data(reset: bool = False):
-    """Load seed chunks into Chroma."""
+    """Load seed chunks into Chroma with Ollama embedding vectors."""
     client = get_client()
 
     if reset:
@@ -44,7 +44,7 @@ def ingest_seed_data(reset: bool = False):
 
     collection = client.get_or_create_collection(
         name=COLLECTION_NAME,
-        metadata={"kb_version": settings.kb_version},
+        metadata={"kb_version": settings.kb_version, "embed_model": settings.ollama_embed_model},
     )
 
     with open(SEED_FILE, encoding="utf-8") as f:
@@ -52,18 +52,38 @@ def ingest_seed_data(reset: bool = False):
 
     ids = [c["id"] for c in chunks]
     documents = [c["text"] for c in chunks]
-    metadatas = [c["metadata"] for c in chunks]
+    metadatas = []
+    for c in chunks:
+        meta = dict(c["metadata"])
+        meta.setdefault("source_id", c["id"])
+        metadatas.append(meta)
 
-    # Upsert in batches
-    batch_size = 50
+    batch_size = 20
     for i in range(0, len(ids), batch_size):
+        batch_docs = documents[i : i + batch_size]
+        try:
+            vectors = embed_documents(batch_docs)
+        except Exception as exc:
+            logger.error(
+                "Embedding failed (is Ollama running with %s?): %s",
+                settings.ollama_embed_model,
+                exc,
+            )
+            raise
         collection.upsert(
             ids=ids[i : i + batch_size],
-            documents=documents[i : i + batch_size],
+            documents=batch_docs,
             metadatas=metadatas[i : i + batch_size],
+            embeddings=vectors,
         )
 
-    logger.info("Ingested %d chunks into %s (kb_version=%s)", len(ids), COLLECTION_NAME, settings.kb_version)
+    logger.info(
+        "Ingested %d chunks into %s (kb_version=%s, embed_model=%s)",
+        len(ids),
+        COLLECTION_NAME,
+        settings.kb_version,
+        settings.ollama_embed_model,
+    )
     return collection.count()
 
 

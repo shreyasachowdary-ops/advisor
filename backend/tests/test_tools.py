@@ -10,10 +10,12 @@ def test_create_activity_plan():
         age_band="4_years",
         goal="turn_taking_during_play",
         days=5,
+        available_minutes_per_day=20,
         setting="classroom",
     )
     assert plan["title"]
     assert len(plan["daily_plan"]) == 5
+    assert plan["available_minutes_per_day"] == 20
     assert plan["editable"] is True
 
 

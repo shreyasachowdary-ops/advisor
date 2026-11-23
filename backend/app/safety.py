@@ -17,22 +17,27 @@ class SafetyResult:
 # Urgent patterns — immediate escalation, no normal advice
 URGENT_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     (
+        # Stems like "suicid" end with \w* so "suicide"/"suicidal" match;
+        # verbs allow -s/-ing/-ed so "wants to die"/"hurting himself" match.
         "self_harm",
         re.compile(
-            r"\b(suicid|self[- ]?harm|"
-            r"kill\s+(myself|themselves|himself|herself|themself)|"
-            r"want\s+to\s+(die|kill)|"
-            r"cutting\s+(myself|themselves)|"
-            r"end\s+(my|their)\s+life|"
-            r"hurt\s+(myself|themselves|himself|herself))\b",
+            r"\b(suicid\w*|self[- ]?harm\w*|"
+            r"kill(s|ing|ed)?\s+(myself|themselves|himself|herself|themself)\b|"
+            r"want(s|ed|ing)?\s+to\s+(die|be\s+dead|kill)\b|"
+            r"(do|does|did)(n'?t|\s+not)\s+want\s+to\s+(live|be\s+alive)\b|"
+            r"better\s+off\s+dead\b|"
+            r"cut(s|ting)?\s+(myself|themselves|himself|herself|themself)\b|"
+            r"end(s|ing)?\s+(my|his|her|their)\s+(own\s+)?life\b|"
+            r"(hurt|harm)(s|ing|ed)?\s+(myself|themselves|himself|herself|themself)\b)",
             re.I,
         ),
     ),
     (
         "harm_others",
         re.compile(
-            r"\b(kill\s+(him|her|them|the\s+child)|hurt\s+(someone|others|children)|"
-            r"planning\s+to\s+attack|bring\s+a\s+weapon|threaten(ed)?\s+to\s+kill)\b",
+            r"\b(kill(s|ing)?\s+(him|her|them|the\s+child)\b|"
+            r"hurt(s|ing)?\s+(someone|others|other\s+children|children)\b|"
+            r"planning\s+to\s+attack|bring(s|ing)?\s+a\s+weapon|threaten(s|ed)?\s+to\s+kill)\b",
             re.I,
         ),
     ),
@@ -40,10 +45,13 @@ URGENT_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
         "abuse_neglect",
         re.compile(
             r"\b(sexual\s+abuse|sexually\s+abused|molest\w*|rape|incest|"
-            r"(physical|emotional)\s+abuse|beat(s|ing)?\s+(the\s+)?child|"
-            r"neglect(ed)?|starv(ing|ed)\s+(the\s+)?child|"
+            r"(physical|emotional)\s+abuse|beat(s|ing|en)?\s+(the\s+)?child|being\s+beaten|"
+            # Feeling left out by peers or a new sibling is not neglect.
+            r"(?<!feels\s)(?<!feel\s)(?<!felt\s)neglect(s|ed|ing)?\b"
+            r"(?!\s+by\s+(peers|friends|classmates|other\s+(children|kids)))|"
+            r"starv(ing|ed)\s+(the\s+)?child|"
             r"locked\s+in\s+(a\s+)?closet|unsafe\s+home|exploit(ed|ation)|"
-            r"\babuse\b(?!\s+(of\s+power|the\s+word))\b)",
+            r"abus(e|es|ed|ing|ive)\b(?!\s+(of\s+power|the\s+word)))",
             re.I,
         ),
     ),
@@ -56,10 +64,16 @@ URGENT_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
         ),
     ),
     (
+        # Weapon words stay urgent unless clearly a toy, utensil, or sport.
         "violence_weapons",
         re.compile(
-            r"\b(gun|knife|weapon|stab(bed|bing)?|shoot(ing|s)?|"
-            r"immediate\s+danger|active\s+shooter)\b",
+            r"(?<!toy\s)(?<!water\s)(?<!nerf\s)(?<!glue\s)(?<!bubble\s)(?<!squirt\s)"
+            r"(?<!finger\s)(?<!pretend\s)\bguns?\b|"
+            r"(?<!butter\s)(?<!plastic\s)(?<!play\s)(?<!toy\s)(?<!table\s)"
+            r"\bkni(fe|ves)\b(?!\s+(safety|skills|and\s+fork))|"
+            r"\b(weapons?|stab(s|bed|bing)?|immediate\s+danger|active\s+shooter)\b|"
+            r"\bshoot(s|ing)?\b(?!\s+(hoops?|baskets?|(the|a)\s+ball|goals?|"
+            r"photos?|pictures?|videos?|bubbles))",
             re.I,
         ),
     ),
@@ -82,7 +96,9 @@ URGENT_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     (
         "medical_emergency",
         re.compile(
-            r"\b(not\s+breathing|unconscious|seizure|severe\s+allergic|"
+            # A known condition ("seizure disorder/plan") is not an emergency in progress.
+            r"\b(not\s+breathing|unconscious|seizures?\b(?!\s+(disorder|plan|medication|history))|"
+            r"severe\s+allergic|"
             r"overdose|poison(ed|ing)|serious\s+injury|emergency\s+room\s+now|"
             r"mental\s+health\s+emergency|psychotic\s+episode)\b",
             re.I,

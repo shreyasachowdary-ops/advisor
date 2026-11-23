@@ -6,12 +6,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from app.config import BACKEND_ROOT
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-AUDIT_DIR = BACKEND_ROOT / "data" / "audit"
-AUDIT_FILE = AUDIT_DIR / "safeguarding_events.jsonl"
+
+def _audit_file() -> Path:
+    # Same configurable folder as feedback (AUDIT_DIR); tests point it at a temp dir.
+    return Path(settings.audit_dir) / "safeguarding_events.jsonl"
 
 
 def submit_safeguarding_flag(
@@ -27,7 +29,8 @@ def submit_safeguarding_flag(
             "reason": "user_confirmed must be true. No flag was submitted.",
         }
 
-    AUDIT_DIR.mkdir(parents=True, exist_ok=True)
+    audit_file = _audit_file()
+    audit_file.parent.mkdir(parents=True, exist_ok=True)
     event = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "category": category,
@@ -37,7 +40,7 @@ def submit_safeguarding_flag(
         "environment": "poc_test_sink",
     }
 
-    with open(AUDIT_FILE, "a", encoding="utf-8") as f:
+    with open(audit_file, "a", encoding="utf-8") as f:
         f.write(json.dumps(event) + "\n")
 
     logger.info("Safeguarding flag recorded (test sink): category=%s severity=%s", category, severity)
